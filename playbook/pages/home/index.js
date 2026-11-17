@@ -9,7 +9,7 @@ const sheetTitles = {
   cities: '城市地图', points: '点位列表', detail: '地点详情', routes: '我的路线',
   stop: '路线站点', editor: '编辑路线', feedback: '反馈点位', 'feedback-cities': '选择城市'
 }
-const mapPreviewSheets = ['cities', 'points', 'detail', 'stop', 'routes', 'editor']
+const mapPreviewSheets = ['cities', 'points', 'detail', 'stop', 'routes', 'editor', 'feedback', 'feedback-cities']
 
 function toast(title) { wx.showToast({ title, icon: 'none' }) }
 
@@ -76,11 +76,18 @@ Page({
     else this.showSheet('')
   },
   noop() {},
-  openMapCities() { this.showSheet('cities') },
+  tapMapCity() {
+    if (this.data.openCities.length > 1) this.showSheet('cities')
+    else this.resetMapView()
+  },
   changeMapCity(event) {
     const cityId = event.currentTarget.dataset.id
-    if (cityId === this.data.cityId) this.closeSheet()
+    if (cityId === this.data.cityId) this.resetMapView()
     else this.loadCity(cityId)
+  },
+  resetMapView() {
+    this.showSheet('', { selectedKey: '' })
+    this.map()?.resetView()
   },
   switchTab(event) { this.activateTab(event.currentTarget.dataset.tab) },
   activateTab(tab, forceFit = false) {

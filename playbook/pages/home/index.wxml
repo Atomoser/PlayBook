@@ -10,8 +10,10 @@
   </view>
 
   <view class="city-picker">
-    <button class="city-switch" size="mini" bindtap="openMapCities" aria-label="切换地图城市">
-      <text>{{cityName}}</text><image class="city-caret" src="/assets/icons/caret-down-light.png" mode="aspectFit" />
+    <button class="city-switch" size="mini" bindtap="tapMapCity"
+      aria-label="{{openCities.length > 1 ? '切换地图城市' : '回到' + cityName + '全图'}}">
+      <text>{{cityName}}</text>
+      <image wx:if="{{openCities.length > 1}}" class="city-caret" src="/assets/icons/caret-down-light.png" mode="aspectFit" />
     </button>
   </view>
 
