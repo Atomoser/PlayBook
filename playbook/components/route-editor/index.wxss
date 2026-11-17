@@ -1,0 +1,25 @@
+:host { display: flex; flex: 1; min-height: 0; }
+.editor { display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; }
+.editor-body { min-height: 0; height: 0; flex: 1; }
+.editor-content { padding: 0 28rpx 24rpx; }
+.field-label { font-size: 26rpx; font-weight: 650; }
+.route-input { height: 76rpx; margin-top: 12rpx; padding: 0 22rpx; border: 1px solid #dfdfe5; border-radius: 22rpx; background: #f8f8fa; font-size: 30rpx; }
+.section-line { display: flex; justify-content: space-between; align-items: center; margin: 28rpx 0 8rpx; }
+.editor .text-button { width: auto; min-width: 0; margin: 0; padding: 0 6rpx; min-height: 62rpx; color: #333; background: #fff; font-size: 24rpx; line-height: 62rpx; }
+.editor-empty { padding: 14rpx 0; color: #686868; font-size: 25rpx; }
+.stop-row, .choice-row { display: flex; align-items: center; min-height: 78rpx; border-bottom: 1px solid #ededed; }
+.stop-number, .choice-type { box-sizing: border-box; flex: none; min-width: 42rpx; margin-right: 14rpx; line-height: 42rpx; text-align: center; font-size: 23rpx; }
+.stop-number { border-radius: 50%; color: #fff; background: #151515; }
+.choice-type { border: 1px solid #d6d6d6; border-radius: 6rpx; }
+.stop-name, .choice-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.editor .stop-action { flex: none; width: 62rpx; min-width: 0; max-width: 62rpx; height: 68rpx; margin: 0; padding: 0; color: #161616; background: #fff; line-height: 68rpx; font-size: 29rpx; }
+.editor .stop-action[disabled] { color: #9b9b9b; background: #fff; }
+.choices-title { margin: 32rpx 0 10rpx; }
+.editor .choice-row { width: 100%; max-width: none; margin: 0; padding: 0; color: #161616; background: #fff; border-radius: 0; font-size: 27rpx; }
+.editor .choice-row[disabled] { color: #666; background: #fff; }
+.choice-action { padding: 0 8rpx; font-size: 24rpx; }
+.editor-actions { display: flex; gap: 16rpx; padding: 18rpx 28rpx; border-top: 1px solid #e5e5e5; }
+.editor .cancel-button, .editor .save-button { min-height: 78rpx; margin: 0; padding: 0 22rpx; border-radius: 999rpx; font-size: 27rpx; line-height: 78rpx; }
+.editor .cancel-button { width: auto; min-width: 100rpx; color: #1c1c1e; background: #f1f1f5; }
+.save-button { flex: 1; color: #fff; background: #1c1c1e; }
+button::after { border: 0; }

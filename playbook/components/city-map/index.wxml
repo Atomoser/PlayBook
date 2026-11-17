@@ -1,0 +1,7 @@
+<view class="viewport" catch:wheel="wheelZoom">
+  <canvas id="city-map" type="2d" class="map-canvas" hidden="{{blocked}}" aria-label="城市吃玩地图"
+    disable-scroll="{{true}}" bindtouchstart="touchStart" catchtouchmove="touchMove"
+    bindtouchend="touchEnd" bindtouchcancel="touchCancel"></canvas>
+  <image wx:if="{{showPreview && previewPath}}" class="map-preview" src="{{previewPath}}" mode="scaleToFill" />
+  <view wx:if="{{error}}" class="map-error">{{error}}。可从点位列表浏览。</view>
+</view>

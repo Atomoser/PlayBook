@@ -1,0 +1,11 @@
+{
+  "usingComponents": {
+    "city-map": "../../components/city-map/index",
+    "route-editor": "../../components/route-editor/index"
+  },
+  "componentPlaceholder": {
+    "route-editor": "view"
+  },
+  "navigationStyle": "custom",
+  "disableScroll": true
+}

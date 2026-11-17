@@ -1,0 +1,11 @@
+{
+  "appid": "touristappid",
+  "projectname": "PlayBook",
+  "miniprogramRoot": "playbook/",
+  "compileType": "miniprogram",
+  "setting": {
+    "es6": true,
+    "minified": true,
+    "minifyWXML": true
+  }
+}

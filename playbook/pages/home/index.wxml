@@ -1,0 +1,168 @@
+<view class="shell">
+  <view class="brandbar" style="padding-top:{{statusBarHeight}}px">
+    <view class="brandbar-content" style="height:{{navigationHeight}}px;padding-right:{{menuInset}}px">
+      <image class="brand-logo" src="/assets/playbook-logo.png" mode="aspectFit" />
+      <view class="brand-wordmark">
+        <text class="brand-title">吃玩书</text>
+        <text class="brand-subtitle">PlayBook</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="city-picker">
+    <button class="city-switch" size="mini" bindtap="openMapCities" aria-label="切换地图城市">
+      <text>{{cityName}}</text><image class="city-caret" src="/assets/icons/caret-down-light.png" mode="aspectFit" />
+    </button>
+  </view>
+
+  <view class="stage">
+    <view class="map-area">
+      <city-map id="map" city-id="{{cityId}}" points="{{mapPoints}}" route="{{mapRoute}}"
+        selected-key="{{selectedKey}}" blocked="{{!!sheet}}" show-preview="{{!!sheet && keepMapVisible}}"
+        bind:pointtap="pointTap" bind:stoptap="stopTap" />
+    </view>
+
+    <view class="map-bottom">
+      <view class="map-actions">
+        <button wx:if="{{activeTab !== 'book'}}" class="map-action" size="mini" bindtap="openPoints"><image class="action-icon" src="/assets/icons/list-bullets-light.png" mode="aspectFit" /><text>点位列表</text></button>
+        <button wx:elif="{{route || routeDraft}}" class="map-action" size="mini" bindtap="openRoutes"><image class="action-icon" src="/assets/icons/list-bullets-light.png" mode="aspectFit" /><text>路线列表</text></button>
+        <button wx:elif="{{routeError}}" class="map-action" size="mini" bindtap="openRoutes">重试</button>
+        <button wx:else class="map-action" size="mini" bindtap="newRoute"><image class="action-icon" src="/assets/icons/plus-circle-light.png" mode="aspectFit" /><text>新建路线</text></button>
+        <button wx:if="{{routeDraft}}" class="map-action draft-action" size="mini" bindtap="resumeEditor">继续编辑 · {{routeDraft.stops.length}} 站</button>
+      </view>
+      <button class="feedback-fab" size="mini" catchtap="openFeedback" aria-label="用户反馈">
+        <image class="feedback-icon" src="/assets/icons/chat-dots-light.png" mode="aspectFit" />
+      </button>
+    </view>
+
+    <view wx:if="{{sheet}}" class="scrim {{keepMapVisible ? 'clear' : ''}}" catchtap="closeSheet" catchtouchmove="noop"></view>
+    <view wx:if="{{sheet}}" class="sheet {{sheet === 'detail' || sheet === 'stop' || sheet === 'cities' || (sheet === 'feedback' && feedbackCopied) ? 'compact' : ''}}" catchtap="noop">
+      <view class="sheet-grip"></view>
+      <view class="sheet-header">
+        <text class="sheet-title">{{sheetTitle}}</text>
+        <button class="sheet-close" bindtap="closeSheet" aria-label="关闭面板"><image class="tool-icon" src="/assets/icons/x.png" mode="aspectFit" /></button>
+      </view>
+
+      <scroll-view wx:if="{{sheet === 'cities'}}" class="sheet-scroll" scroll-y>
+        <view class="sheet-content">
+          <button wx:for="{{openCities}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="changeMapCity">
+            <text class="row-title">{{item.name}}</text><text wx:if="{{item.id === cityId}}" class="row-note">当前地图</text>
+          </button>
+        </view>
+      </scroll-view>
+
+      <scroll-view wx:elif="{{sheet === 'points'}}" class="sheet-scroll" scroll-y>
+        <view class="sheet-content">
+          <view wx:if="{{!mapPoints.length}}" class="empty-copy">当前类别暂无点位。</view>
+          <button wx:for="{{mapPoints}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="pointFromList">
+            <text class="list-mark {{item.category === 'play' ? 'square' : ''}}"></text>
+            <view class="row-copy"><text class="row-title">{{item.name}}</text><text class="row-meta">{{item.address}}</text></view>
+            <text class="row-arrow">›</text>
+          </button>
+        </view>
+      </scroll-view>
+
+      <block wx:elif="{{sheet === 'detail' || sheet === 'stop'}}">
+        <scroll-view class="sheet-scroll" scroll-y>
+          <view class="sheet-content location-detail">
+            <text class="detail-tag">{{sheet === 'stop' ? '第 ' + stopNumber + ' 站 · ' : ''}}{{detail.category === 'eat' ? '吃' : '玩'}}</text>
+            <text class="detail-name">{{detail.name}}</text>
+            <text class="detail-address">{{detail.provinceName || provinceName}} · {{detail.cityName || cityName}}{{detail.address ? ' · ' + detail.address : ''}}</text>
+            <text class="detail-description">{{detail.description || '此站保留了保存路线时的名称和坐标。'}}</text>
+          </view>
+        </scroll-view>
+        <view wx:if="{{sheet === 'detail'}}" class="sheet-actions">
+          <button wx:if="{{detail.address}}" class="primary-btn" bindtap="copyDetailAddress">复制地址</button>
+          <button class="primary-btn" bindtap="addDetailToRoute">{{routeDraft ? '加入正在编辑的路线' : '新建路线'}}</button>
+        </view>
+      </block>
+
+      <block wx:elif="{{sheet === 'routes'}}">
+        <scroll-view class="sheet-scroll" scroll-y>
+          <view class="sheet-content">
+            <view wx:if="{{!routes.length}}" class="empty-copy">暂无路线。选两个地点，保存第一条行程。</view>
+            <view wx:if="{{route}}" class="route-stops">
+              <text class="section-label">当前路线 · {{route.name}}</text>
+              <button wx:for="{{route.stops}}" wx:key="pointId" class="list-row stop-list-row" data-index="{{index}}" bindtap="stopFromList">
+                <text class="stop-index">{{index + 1}}</text><text class="row-title">{{item.name}}</text><text class="row-arrow">›</text>
+              </button>
+            </view>
+            <view wx:for="{{routes}}" wx:key="id" class="route-card">
+              <view class="route-card-top">
+                <text class="route-card-title">{{item.name}}</text>
+                <text class="row-note">{{route.id === item.id ? '当前路线 · ' : ''}}{{item.stops.length}} 站</text>
+              </view>
+              <view class="route-card-actions">
+                <button class="small-button" data-id="{{item.id}}" bindtap="openRouteOnMap">在地图查看</button>
+                <button class="small-button" data-id="{{item.id}}" bindtap="editRoute">编辑</button>
+                <button class="small-button" data-id="{{item.id}}" bindtap="deleteRoute">删除</button>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="sheet-actions"><button class="primary-btn" bindtap="newRoute">{{routeDraft ? '继续编辑' : '新建路线'}}</button></view>
+      </block>
+
+      <route-editor wx:elif="{{sheet === 'editor'}}" draft="{{routeDraft}}" choices="{{routeChoices}}"
+        bind:namechange="updateDraftName" bind:addpoint="addEditorStop" bind:movestop="moveStop"
+        bind:removestop="removeStop" bind:browsemap="browseMapForStops" bind:cancel="cancelDraft" bind:save="saveDraft" />
+
+      <block wx:elif="{{sheet === 'feedback'}}">
+        <scroll-view class="sheet-scroll" scroll-y>
+          <view wx:if="{{!feedbackCopied}}" class="sheet-content feedback-form">
+            <text class="field-label">城市</text>
+            <button class="field-button" bindtap="openFeedbackCities"><text>{{feedbackCityName || '选择城市'}}</text><text class="row-arrow">›</text></button>
+            <text class="field-label">类别</text>
+            <view class="category-row">
+              <button class="category-button {{feedbackDraft.category === 'eat' ? 'chosen' : ''}}" data-category="eat" bindtap="selectFeedbackCategory">吃</button>
+              <button class="category-button {{feedbackDraft.category === 'play' ? 'chosen' : ''}}" data-category="play" bindtap="selectFeedbackCategory">玩</button>
+            </view>
+            <text class="field-label">地点名称</text>
+            <input class="form-input" value="{{feedbackDraft.name}}" maxlength="40" placeholder="店名或景点名称" data-field="name" bindinput="changeFeedbackText" />
+            <text class="field-label">详细地址</text>
+            <input class="form-input" value="{{feedbackDraft.address}}" maxlength="80" placeholder="区县、街道、门牌或附近地标" data-field="address" bindinput="changeFeedbackText" />
+            <text class="field-label">说明</text>
+            <textarea class="form-input form-textarea" value="{{feedbackDraft.description}}" maxlength="160" placeholder="特色、推荐理由或入口提示" data-field="description" bindinput="changeFeedbackText"></textarea>
+          </view>
+          <view wx:else class="sheet-content location-detail">
+            <text class="detail-name">反馈已复制</text>
+            <text class="detail-description">打开微信客服，在对话中粘贴并发送。作者核实后会将正式点位加入地图。</text>
+          </view>
+        </scroll-view>
+        <view class="sheet-actions">
+          <button wx:if="{{!feedbackCopied}}" class="primary-btn" bindtap="copyFeedback">复制反馈</button>
+          <block wx:else>
+            <button class="secondary-btn" bindtap="editFeedback">返回修改</button>
+            <button class="primary-btn" open-type="contact">打开客服</button>
+          </block>
+        </view>
+      </block>
+
+      <block wx:elif="{{sheet === 'feedback-cities'}}">
+        <view class="city-search"><input class="form-input" value="{{feedbackQuery}}" placeholder="搜索城市名称" bindinput="searchCities" confirm-type="search" /></view>
+        <scroll-view class="sheet-scroll" scroll-y bindscrolltolower="moreCities">
+          <view class="sheet-content">
+            <view wx:if="{{!feedbackMatches.length}}" class="empty-copy">没有匹配的城市。</view>
+            <button wx:for="{{feedbackMatches}}" wx:key="cityId" class="list-row" data-id="{{item.cityId}}" bindtap="chooseFeedbackCity">
+              <text class="row-title">{{item.cityName}}</text>
+              <text class="row-note">{{item.cityId === feedbackDraft.cityId ? '已选' : item.provinceName}}</text>
+            </button>
+            <button wx:if="{{feedbackHasMore}}" class="load-more" bindtap="moreCities">显示更多城市</button>
+          </view>
+        </scroll-view>
+      </block>
+    </view>
+  </view>
+
+  <view class="tabbar" aria-label="地图分类">
+    <button class="tab {{activeTab === 'eat' ? 'active' : ''}}" data-tab="eat" bindtap="switchTab" aria-label="吃">
+      <image class="tab-icon" src="{{activeTab === 'eat' ? '/assets/icons/fork-knife-light.png' : '/assets/icons/fork-knife.png'}}" mode="aspectFit" /><text>吃</text>
+    </button>
+    <button class="tab {{activeTab === 'play' ? 'active' : ''}}" data-tab="play" bindtap="switchTab" aria-label="玩">
+      <image class="tab-icon" src="{{activeTab === 'play' ? '/assets/icons/map-pin-light.png' : '/assets/icons/map-pin.png'}}" mode="aspectFit" /><text>玩</text>
+    </button>
+    <button class="tab {{activeTab === 'book' ? 'active' : ''}}" data-tab="book" bindtap="switchTab" aria-label="书">
+      <image class="tab-icon" src="{{activeTab === 'book' ? '/assets/icons/book-open-text-light.png' : '/assets/icons/book-open-text.png'}}" mode="aspectFit" /><text>书</text>
+    </button>
+  </view>
+</view>

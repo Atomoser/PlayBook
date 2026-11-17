@@ -1,0 +1,12 @@
+{
+  "pages": ["pages/home/index"],
+  "window": {
+    "navigationBarTitleText": "PlayBook",
+    "navigationBarBackgroundColor": "#f1f1f5",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f1f1f5"
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

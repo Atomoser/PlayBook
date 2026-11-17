@@ -1,0 +1,33 @@
+<view wx:if="{{draft}}" class="editor">
+  <scroll-view class="editor-body" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="editor-content">
+      <view class="field-label">路线名称</view>
+      <input class="route-input" value="{{draft.name}}" maxlength="40" placeholder="例如：水东半日游" bindinput="changeName" />
+
+      <view class="section-line">
+        <view class="field-label">站点顺序 · {{draft.stops.length}}</view>
+        <button class="text-button" bindtap="browse">在地图选点</button>
+      </view>
+      <view wx:if="{{!draft.stops.length}}" class="editor-empty">选择下面的地点，加入路线。</view>
+      <view wx:for="{{draft.stops}}" wx:key="pointId" class="stop-row">
+        <view class="stop-number">{{index + 1}}</view>
+        <view class="stop-name">{{item.name}}</view>
+        <button class="stop-action" disabled="{{index === 0}}" data-index="{{index}}" data-step="-1" bindtap="move" aria-label="上移">↑</button>
+        <button class="stop-action" disabled="{{index === draft.stops.length - 1}}" data-index="{{index}}" data-step="1" bindtap="move" aria-label="下移">↓</button>
+        <button class="stop-action" data-index="{{index}}" bindtap="remove" aria-label="移除">×</button>
+      </view>
+
+      <view class="field-label choices-title">添加吃玩地点</view>
+      <view wx:if="{{!choices.length}}" class="editor-empty">这座城市暂无候选点位。</view>
+      <button wx:for="{{choices}}" wx:key="id" class="choice-row" disabled="{{item.added}}" data-id="{{item.id}}" bindtap="add">
+        <text class="choice-type">{{item.category === 'eat' ? '吃' : '玩'}}</text>
+        <text class="choice-name">{{item.name}}</text>
+        <text class="choice-action">{{item.added ? '已加入' : '＋'}}</text>
+      </button>
+    </view>
+  </scroll-view>
+  <view class="editor-actions">
+    <button class="cancel-button" bindtap="cancel">取消</button>
+    <button class="save-button" bindtap="save">保存路线</button>
+  </view>
+</view>
