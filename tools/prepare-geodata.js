@@ -1,7 +1,9 @@
-const { writeFileSync } = require('node:fs')
+const { existsSync, mkdirSync, writeFileSync } = require('node:fs')
 const { resolve } = require('node:path')
 
-const districtSource = 'https://geo.datav.aliyun.com/areas_v3/bound/440900_full.json'
+const dataV = 'https://geo.datav.aliyun.com/areas_v3/bound'
+const maomingSource = `${dataV}/440900_full.json`
+const guangdongSource = `${dataV}/440000_full.json`
 const catalogueSource = 'https://dmfw.mca.gov.cn/9095/xzqh/getList'
 const data = resolve(__dirname, '../playbook/data')
 
@@ -35,10 +37,8 @@ function simplify(points) {
   return simplify(points.slice(0, split + 1)).slice(0, -1).concat(simplify(points.slice(split)))
 }
 
-async function prepareBoundaries() {
-  const collection = await read(districtSource)
-  if (collection.features.length !== 5) throw new Error('茂名区划源的区县数量发生变化，请复核。')
-  return collection.features.map(({ properties, geometry }) => ({
+function normalizeBoundaries(features) {
+  return features.map(({ properties, geometry }) => ({
     id: String(properties.adcode),
     name: properties.name,
     label: properties.centroid || properties.center,
@@ -49,6 +49,99 @@ async function prepareBoundaries() {
           .map(coordinate => coordinate.map(value => Number(value.toFixed(6))))
       }))
   }))
+}
+
+async function prepareBoundaries() {
+  const { features } = await read(maomingSource)
+  if (features.length !== 5) throw new Error('茂名区划源的区县数量发生变化，请复核。')
+  return normalizeBoundaries(features)
+}
+
+function boundaryBounds(boundaries) {
+  let west = Infinity
+  let south = Infinity
+  let east = -Infinity
+  let north = -Infinity
+  for (const { polygons } of boundaries) {
+    for (const polygon of polygons) {
+      for (const ring of polygon) {
+        for (const [longitude, latitude] of ring) {
+          west = Math.min(west, longitude)
+          south = Math.min(south, latitude)
+          east = Math.max(east, longitude)
+          north = Math.max(north, latitude)
+        }
+      }
+    }
+  }
+  if (!(west < east && south < north)) throw new Error('地图边界范围无效')
+  return [west, south, east, north]
+}
+
+function writeBoundaries(output, source, boundaries) {
+  writeFileSync(output,
+    `// Source: ${source} (GCJ-02)\nmodule.exports = [\n${boundaries.map(value => '  ' + JSON.stringify(value)).join(',\n')}\n]\n`,
+    'utf8')
+}
+
+async function prepareGuangdong() {
+  const catalogue = require('../playbook/data/feedback-cities.js')
+  const cityNames = new Map(catalogue
+    .filter(city => city.provinceName === '广东' && city.cityId === city.mapCityId)
+    .map(city => [city.cityId, city.cityName]))
+  const { features } = await read(guangdongSource)
+  const ids = new Set(features.map(feature => String(feature.properties.adcode)))
+  if (features.length !== 21 || ids.size !== 21 || cityNames.size !== 21 ||
+      [...ids].some(id => !cityNames.has(id))) {
+    throw new Error('DataV 广东地级市与本地城市目录不一致，请复核')
+  }
+
+  // 茂名继续使用已有地图，保留它的边界、点位和路线数据。
+  const remaining = features.filter(feature => String(feature.properties.adcode) !== '440900')
+  const cities = []
+  for (let offset = 0; offset < remaining.length; offset += 5) {
+    const batch = await Promise.all(remaining.slice(offset, offset + 5).map(async feature => {
+      const { adcode, childrenNum } = feature.properties
+      const id = String(adcode)
+      const source = childrenNum === 0 ? guangdongSource : `${dataV}/${id}_full.json`
+      const districts = childrenNum === 0 ? [feature] : (await read(source)).features
+      if (!districts.length || districts.length !== (childrenNum || 1)) {
+        throw new Error(`${cityNames.get(id)}的行政区数量与数据源不一致，请复核`)
+      }
+      const boundaries = normalizeBoundaries(districts)
+      const bounds = boundaryBounds(boundaries)
+      const [west, south, east, north] = bounds
+      const center = [(west + east) / 2, (south + north) / 2].map(value => Number(value.toFixed(6)))
+      return { id, cityName: cityNames.get(id), center, bounds, source, boundaries }
+    }))
+    cities.push(...batch)
+  }
+
+  const folder = resolve(data, 'guangdong')
+  const outlines = normalizeBoundaries(features).map(({ id, polygons }) =>
+    `  '${id}': ${JSON.stringify(polygons.map(polygon => polygon[0]))}`)
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(resolve(folder, 'outlines.js'),
+    `// Source: ${guangdongSource} (GCJ-02), city exterior rings.\nmodule.exports = {\n${outlines.join(',\n')}\n}\n`,
+    'utf8')
+  for (const city of cities) {
+    const cityFolder = resolve(folder, city.id)
+    mkdirSync(cityFolder, { recursive: true })
+    writeBoundaries(resolve(cityFolder, 'boundaries.js'), city.source, city.boundaries)
+    const points = resolve(cityFolder, 'points.js')
+    if (!existsSync(points)) writeFileSync(points, 'module.exports = []\n', { encoding: 'utf8', flag: 'wx' })
+  }
+  const registrations = cities.map(({ id, cityName, center, bounds }) =>
+    `  city('${id}', '${cityName}', ${JSON.stringify(center)}, ${JSON.stringify(bounds)},\n` +
+    `    require('./${id}/boundaries.js'), require('./${id}/points.js'))`)
+  writeFileSync(resolve(folder, 'index.js'),
+    `// Generated by node tools/prepare-geodata.js --guangdong.\n` +
+    `const outlines = require('./outlines.js')\n\n` +
+    `function city(id, cityName, center, bounds, boundaries, points) {\n` +
+    `  return { id, provinceName: '广东', cityName, dataFolder: 'guangdong/' + id,\n` +
+    `    coordSystem: 'GCJ-02', center, bounds, outline: outlines[id], boundaries, points }\n}\n\n` +
+    `module.exports = Object.fromEntries([\n${registrations.join(',\n')}\n].map(entry => [entry.id, entry]))\n`, 'utf8')
+  console.log(`导入广东 ${cities.length} 市边界，保留已有的茂名地图及各市点位`)
 }
 
 async function prepareCities() {
@@ -102,9 +195,11 @@ async function prepareCities() {
 }
 
 async function main() {
+  const [, , option] = process.argv
+  if (option === '--guangdong') return prepareGuangdong()
+  if (option) throw new Error('用法：node tools/prepare-geodata.js [--guangdong]')
   const [boundaries, cities] = await Promise.all([prepareBoundaries(), prepareCities()])
-  writeFileSync(resolve(data, 'maoming/boundaries.js'),
-    `// Source: ${districtSource} (GCJ-02)\nmodule.exports = [\n${boundaries.map(value => '  ' + JSON.stringify(value)).join(',\n')}\n]\n`, 'utf8')
+  writeBoundaries(resolve(data, 'maoming/boundaries.js'), maomingSource, boundaries)
   writeFileSync(resolve(data, 'feedback-cities.js'),
     `// Source: ${catalogueSource}\nmodule.exports = [\n${cities.map(value => '  ' + JSON.stringify(value)).join(',\n')}\n]\n`, 'utf8')
   console.log(`写入 ${boundaries.length} 个区县和 ${cities.length} 条城市目录记录`)

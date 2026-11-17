@@ -1,6 +1,6 @@
 # PlayBook
 
-原生微信小程序。首版提供茂名吃玩地图、保存在本机的旅行路线和微信原生客服反馈。行政区划与点位随代码包加载。
+原生微信小程序。广东 21 个地级市显示在同一张离线地图上，可跨市拖动，缩小可查看全省。左上角选择城市可将地图视野移到该市，默认居中茂名。茂名保留现有吃玩点位，其他城市暂未添加点位。旅行路线按城市分开保存在本机。
 
 ## 在微信开发者工具中打开
 
@@ -18,9 +18,10 @@ node tools/add-point.js --from feedback.json
 node tools/validate-data.js
 ```
 
-导入后用开发者工具预览点位，再随新版发布。当前支持写入茂名地图，包括归入茂名地图的县级市。尚未开放地图的城市可以先保留相应反馈文件。
+导入后用开发者工具预览点位，再随新版发布。当前支持写入广东 21 市地图，县级市反馈按目录里的所属地级市导入。茂名点位在 `playbook/data/maoming/points.js`，其余广东城市在 `playbook/data/guangdong/<城市编码>/points.js`。尚未开放地图的城市可以先保留相应反馈文件。
 
 ## 数据来源
 
-- 茂名区划来自阿里云 DataV。全国反馈目录来自民政部国家地名信息库，分为直辖市、地级行政区、县级市及独立地区条目。资料源中的台湾只有地区级条目。重新获取数据可运行 `node tools/prepare-geodata.js`。[茂名区划](https://geo.datav.aliyun.com/areas_v3/bound/440900_full.json) · [国家地名信息库](https://dmfw.mca.gov.cn/)
+- 广东区划来自阿里云 DataV。东莞和中山使用省级数据中的市域轮廓，其余城市显示各自的区县边界。运行 `node tools/prepare-geodata.js --guangdong` 可重新生成新加入的 20 市地图，已有点位文件会保留。[广东区划](https://geo.datav.aliyun.com/areas_v3/bound/440000_full.json)
+- 全国反馈目录来自民政部国家地名信息库，分为直辖市、地级行政区、县级市及独立地区条目。资料源中的台湾只有地区级条目。运行 `node tools/prepare-geodata.js` 可重新获取茂名区划及全国反馈目录。[茂名区划](https://geo.datav.aliyun.com/areas_v3/bound/440900_full.json) · [国家地名信息库](https://dmfw.mca.gov.cn/)
 - 首发美食标记是城区探店范围。中国第一滩使用设计文档中的景区参考点，露天矿生态公园坐标使用高德地名资料。[美食介绍](https://static.nfnews.com/content/202603/21/c12264482.html) · [露天矿生态公园](https://www.amap.com/place/B0FFHON6G1)

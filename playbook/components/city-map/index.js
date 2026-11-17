@@ -1,5 +1,63 @@
-const { getCity } = require('../../services/city-data.js')
+const { getCity, getProvinceCities } = require('../../services/city-data.js')
 const { projectLocal, toScreen, zoomAt, fit, layoutLabels } = require('./geometry.js')
+
+const mapPadding = { left: 30, right: 34, top: 24, bottom: 28 }
+const districtFills = ['#eaeaea', '#f3f3f3', '#ededed', '#f5f5f5', '#f0f0f0']
+
+function projectedBounds(rings) {
+  let left = Infinity
+  let top = Infinity
+  let right = -Infinity
+  let bottom = -Infinity
+  for (const ring of rings) {
+    for (const { x, y } of ring) {
+      left = Math.min(left, x)
+      top = Math.min(top, y)
+      right = Math.max(right, x)
+      bottom = Math.max(bottom, y)
+    }
+  }
+  return { left, top, right, bottom }
+}
+
+function intersects(bounds, viewport) {
+  return bounds.left <= viewport.right && bounds.right >= viewport.left &&
+    bounds.top <= viewport.bottom && bounds.bottom >= viewport.top
+}
+
+function projectProvince(provinceName) {
+  const cities = getProvinceCities(provinceName)
+  const west = Math.min(...cities.map(city => city.bounds[0]))
+  const south = Math.min(...cities.map(city => city.bounds[1]))
+  const east = Math.max(...cities.map(city => city.bounds[2]))
+  const north = Math.max(...cities.map(city => city.bounds[3]))
+  const center = [(west + east) / 2, (south + north) / 2]
+  const project = coordinate => projectLocal(coordinate, center)
+  const corners = [project([west, north]), project([east, south])]
+  return {
+    name: provinceName, center, corners,
+    cities: cities.map(city => {
+      const [west, south, east, north] = city.bounds
+      const corners = [project([west, north]), project([east, south])]
+      return {
+        id: city.id,
+        name: city.cityName,
+        label: project(city.center),
+        corners,
+        bounds: projectedBounds([corners]),
+        outline: city.outline.map(ring => ring.map(project)),
+        districts: city.boundaries.map(district => ({
+          name: district.name,
+          label: project(district.label),
+          polygons: district.polygons.map(polygon => {
+            const rings = polygon.map(ring => ring.map(project))
+            return { rings, bounds: projectedBounds(rings) }
+          })
+        }))
+      }
+    })
+  }
+}
 
 function trace(ctx, points, close) {
   ctx.moveTo(points[0].x, points[0].y)
@@ -132,18 +190,13 @@ Component({
       if (!this.context) return
       const city = getCity(this.properties.cityId)
       if (!city) return
-      this.center = city.center
-      this.districts = city.boundaries.map(district => ({
-        name: district.name,
-        label: this.local(district.label),
-        polygons: district.polygons.map(polygon => polygon.map(ring => ring.map(coordinate => this.local(coordinate))))
-      }))
-      const [west, south, east, north] = city.bounds
-      this.homeView = fit([this.local([west, north]), this.local([east, south])], this.width, this.height,
-        { left: 30, right: 34, top: 24, bottom: 28 })
+      if (this.province?.name !== city.provinceName) this.province = projectProvince(city.provinceName)
+      this.selectedCity = this.province.cities.find(item => item.id === city.id)
+      this.provinceView = fit(this.province.corners, this.width, this.height, mapPadding)
+      this.homeView = fit(this.selectedCity.corners, this.width, this.height, mapPadding)
       this.resetView()
     },
-    local(coordinate) { return projectLocal(coordinate, this.center) },
+    local(coordinate) { return projectLocal(coordinate, this.province.center) },
     screen(point) { return toScreen(point, this.view) },
     resetView() {
       if (!this.homeView) return
@@ -165,8 +218,10 @@ Component({
     },
     changeZoom(factor, anchor = { x: this.width / 2, y: this.height / 2 }) {
       if (!this.homeView) return
-      const scale = Math.min(this.homeView.scale * 14, Math.max(this.homeView.scale * 0.75, this.view.scale * factor))
-      this.view = zoomAt(this.view, anchor, scale)
+      const minScale = this.provinceView.scale
+      const scale = Math.min(this.homeView.scale * 14, Math.max(minScale, this.view.scale * factor))
+      if (scale === this.view.scale) return
+      this.view = scale === minScale ? { ...this.provinceView } : zoomAt(this.view, anchor, scale)
       this.redraw()
     },
     wheelZoom(event) {
@@ -224,29 +279,59 @@ Component({
       for (let x = 14; x < width; x += 22) {
         for (let y = 14; y < height; y += 22) ctx.fillRect(x, y, 1, 1)
       }
-      const fills = ['#eaeaea', '#f3f3f3', '#ededed', '#f5f5f5', '#f0f0f0']
-      this.districts.forEach((district, index) => {
-        ctx.strokeStyle = '#9a9a9a'
-        ctx.fillStyle = fills[index % fills.length]
-        ctx.lineWidth = 1
-        for (const polygon of district.polygons) {
-          ctx.beginPath()
-          for (const ring of polygon) trace(ctx, ring.map(point => this.screen(point)), true)
-          ctx.fill()
-          ctx.stroke()
-        }
-        const label = this.screen(district.label)
-        ctx.fillStyle = '#686868'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.font = '12px sans-serif'
-        ctx.fillText(district.name, label.x, label.y)
-      })
+      this.drawProvince()
       const markers = this.markers()
       if (this.properties.route) drawRoute(ctx, markers)
       markers.forEach(marker => drawMarker(ctx, marker))
       this.labels = this.moved ? [] : layoutLabels(ctx, markers, width, height)
       this.labels.forEach(label => drawLabel(ctx, label))
+    },
+    drawProvince() {
+      const { context: ctx, width, height, view } = this
+      const { x, y, scale } = view
+      const viewport = {
+        left: (-x - 1) / scale, top: (-y - 1) / scale,
+        right: (width - x + 1) / scale, bottom: (height - y + 1) / scale
+      }
+      const overview = scale < this.provinceView.scale * 2
+      const labels = []
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(scale, scale)
+      ctx.strokeStyle = overview ? '#b6b6b6' : '#9a9a9a'
+      ctx.lineWidth = (overview ? 0.75 : 1) / scale
+      this.province.cities.forEach((city, cityIndex) => {
+        if (!intersects(city.bounds, viewport)) return
+        if (overview) labels.push(city)
+        city.districts.forEach((district, districtIndex) => {
+          ctx.fillStyle = districtFills[(overview ? cityIndex : districtIndex) % districtFills.length]
+          for (const polygon of district.polygons) {
+            if (!intersects(polygon.bounds, viewport)) continue
+            ctx.beginPath()
+            for (const ring of polygon.rings) trace(ctx, ring, true)
+            ctx.fill()
+            ctx.stroke()
+          }
+          if (!overview) labels.push(district)
+        })
+      })
+      ctx.strokeStyle = '#1c1c1e'
+      ctx.lineWidth = 2.5 / scale
+      ctx.lineJoin = 'round'
+      ctx.beginPath()
+      for (const ring of this.selectedCity.outline) trace(ctx, ring, true)
+      ctx.stroke()
+      ctx.restore()
+
+      ctx.fillStyle = '#686868'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = overview ? '11px sans-serif' : '12px sans-serif'
+      for (const { name, label } of labels) {
+        const point = this.screen(label)
+        if (point.x < 0 || point.x > width || point.y < 0 || point.y > height) continue
+        ctx.fillText(name, point.x, point.y)
+      }
     },
     localTouch(touch) {
       return {

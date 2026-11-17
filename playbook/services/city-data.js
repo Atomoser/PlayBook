@@ -5,6 +5,10 @@ function getCity(cityId) {
   return cities[cityId]
 }
 
+function getProvinceCities(provinceName) {
+  return Object.values(cities).filter(city => city.provinceName === provinceName)
+}
+
 function getPoints(cityId, category) {
   return getCity(cityId).points.filter(point => point.category === category)
 }
@@ -41,6 +45,7 @@ function createFeedback(draft) {
 
 module.exports = {
   getCity,
+  getProvinceCities,
   getPoints,
   getFeedbackCity,
   searchFeedbackCities,

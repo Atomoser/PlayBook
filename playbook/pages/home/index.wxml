@@ -48,7 +48,7 @@
       <scroll-view wx:if="{{sheet === 'cities'}}" class="sheet-scroll" scroll-y>
         <view class="sheet-content">
           <button wx:for="{{openCities}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="changeMapCity">
-            <text class="row-title">{{item.name}}</text><text wx:if="{{item.id === cityId}}" class="row-note">当前地图</text>
+            <text class="row-title">{{item.name}}</text><text wx:if="{{item.id === cityId}}" class="row-note">当前城市</text>
           </button>
         </view>
       </scroll-view>

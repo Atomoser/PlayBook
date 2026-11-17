@@ -6,7 +6,7 @@ const { readCityState, saveRoute, selectRoute, removeRoute } = require('../../se
 const defaultCityId = '440900'
 const feedbackBatchSize = 70
 const sheetTitles = {
-  cities: '城市地图', points: '点位列表', detail: '地点详情', routes: '我的路线',
+  cities: '选择城市', points: '点位列表', detail: '地点详情', routes: '我的路线',
   stop: '路线站点', editor: '编辑路线', feedback: '反馈点位', 'feedback-cities': '选择城市'
 }
 const mapPreviewSheets = ['cities', 'points', 'detail', 'stop', 'routes', 'editor', 'feedback', 'feedback-cities']
@@ -53,6 +53,8 @@ Page({
   loadCity(cityId) {
     const city = getCity(cityId)
     if (!city) return
+    const { activeTab } = this.data
+    const routeView = activeTab === 'book'
     let routes = []
     let route = null
     let routeError = ''
@@ -63,9 +65,9 @@ Page({
     } catch (error) {
       routeError = '本地路线暂时无法读取'
     }
-    this.setData({ cityId, cityName: city.cityName, provinceName: city.provinceName, activeTab: 'eat',
-      mapPoints: getPoints(cityId, 'eat'), mapRoute: null, route, routes, routeError,
-      sheet: '', sheetTitle: '', routeDraft: null, routeChoices: [], detail: null, selectedKey: '' })
+    this.showSheet('', { cityId, cityName: city.cityName, provinceName: city.provinceName,
+      mapPoints: routeView ? [] : getPoints(cityId, activeTab), mapRoute: routeView ? route : null,
+      route, routes, routeError, routeDraft: null, routeChoices: [], detail: null, selectedKey: '' })
   },
 
   showSheet(sheet, extra = {}) {
