@@ -1,4 +1,6 @@
-const { getCity, getProvinceCities } = require('../../services/city-data.js')
+const { getCity, ensureCityDetails, getCountryBase, ensureCountryBase } = require('../../services/city-data.js')
+const catalogue = require('../../data/national/catalogue.js')
+const { decodePolygons } = require('../../services/map-geometry.js')
 const { projectLocal, toScreen, zoomAt, fit, layoutLabels } = require('./geometry.js')
 
 const mapPadding = { left: 30, right: 34, top: 24, bottom: 28 }
@@ -25,38 +27,58 @@ function intersects(bounds, viewport) {
     bounds.top <= viewport.bottom && bounds.bottom >= viewport.top
 }
 
-function projectProvince(provinceName) {
-  const cities = getProvinceCities(provinceName)
-  const west = Math.min(...cities.map(city => city.bounds[0]))
-  const south = Math.min(...cities.map(city => city.bounds[1]))
-  const east = Math.max(...cities.map(city => city.bounds[2]))
-  const north = Math.max(...cities.map(city => city.bounds[3]))
-  const center = [(west + east) / 2, (south + north) / 2]
+function projectPolygons(polygons, project) {
+  return polygons.map(polygon => {
+    const rings = polygon.map(ring => ring.map(project))
+    return { rings, bounds: projectedBounds(rings) }
+  })
+}
+
+function projectCountry(national) {
+  const center = [105, 35]
   const project = coordinate => projectLocal(coordinate, center)
-  const corners = [project([west, north]), project([east, south])]
+  const provinces = (national?.provinces || []).map(province => ({
+    id: province.id, name: province.name, label: project(province.label),
+    polygons: projectPolygons(decodePolygons(province.polygons), project)
+  }))
+  const [west, south, east, north] = catalogue.bounds
+  const bases = national?.cities || catalogue.cities.map(city => ({ id: city.id, polygons: [] }))
   return {
-    name: provinceName, center, corners,
-    cities: cities.map(city => {
+    center,
+    corners: [project([west, north]), project([east, south])],
+    provinces,
+    borders: projectPolygons(decodePolygons(national?.borders || []), project),
+    cities: bases.map(base => {
+      const city = getCity(base.id)
       const [west, south, east, north] = city.bounds
       const corners = [project([west, north]), project([east, south])]
+      const polygons = projectPolygons(decodePolygons(base.polygons), project)
       return {
-        id: city.id,
-        name: city.cityName,
-        label: project(city.center),
-        corners,
+        id: city.id, name: city.cityName, provinceId: city.provinceId,
+        label: project(city.center), corners, polygons,
         bounds: projectedBounds([corners]),
-        outline: city.outline.map(ring => ring.map(project)),
-        districts: city.boundaries.map(district => ({
-          name: district.name,
-          label: project(district.label),
-          polygons: district.polygons.map(polygon => {
-            const rings = polygon.map(ring => ring.map(project))
-            return { rings, bounds: projectedBounds(rings) }
-          })
-        }))
+        outline: polygons.map(polygon => polygon.rings[0])
       }
     })
   }
+}
+
+function projectCityDetails(city, center) {
+  const project = coordinate => projectLocal(coordinate, center)
+  const vertices = []
+  const districts = city.boundaries.map(district => ({
+    name: district.name, label: project(district.label),
+    polygons: district.polygons.map(polygon => {
+      const rings = polygon.map(ring => ring.map(coordinate => {
+        const point = project(coordinate)
+        vertices.push(point)
+        return point
+      }))
+      return { rings, bounds: projectedBounds(rings) }
+    })
+  }))
+  for (const coordinate of city.outline.extra) vertices.push(project(coordinate))
+  return { districts, outline: city.outline.rings.map(ring => ring.map(index => vertices[index])) }
 }
 
 function trace(ctx, points, close) {
@@ -142,7 +164,7 @@ Component({
     blocked: { type: Boolean, value: false, observer: 'redraw' },
     showPreview: { type: Boolean, value: false }
   },
-  data: { error: '', previewPath: '' },
+  data: { error: '', previewPath: '', loading: false, loadError: '' },
   observers: {
     'points, route, selectedKey': function () { this.redraw() },
     'showPreview, route, selectedKey': function (showPreview) {
@@ -153,6 +175,7 @@ Component({
   lifetimes: {
     ready() { this.measure() },
     detached() {
+      this.disposed = true
       if (this.frame != null) {
         if (this.hasAnimationFrame) this.canvas.cancelAnimationFrame(this.frame)
         else clearTimeout(this.frame)
@@ -190,13 +213,26 @@ Component({
       if (!this.context) return
       const city = getCity(this.properties.cityId)
       if (!city) return
-      if (this.province?.name !== city.provinceName) this.province = projectProvince(city.provinceName)
-      this.selectedCity = this.province.cities.find(item => item.id === city.id)
-      this.provinceView = fit(this.province.corners, this.width, this.height, mapPadding)
+      const base = getCountryBase()
+      if (!this.country || this.countrySource !== base) {
+        this.country = projectCountry(base)
+        this.countrySource = base
+      }
+      if (!this.detailCache) {
+        this.detailCache = new Map()
+        this.pendingCities = new Set()
+        this.failedCities = new Set()
+      }
+      this.selectedCity = this.country.cities.find(item => item.id === city.id)
+      this.countryView = fit(this.country.corners, this.width, this.height, mapPadding)
       this.homeView = fit(this.selectedCity.corners, this.width, this.height, mapPadding)
+      this.failedCities.delete(city.id)
+      this.syncLoadStatus()
       this.resetView()
+      this.requestDetails(this.selectedCity)
+      this.requestCountry()
     },
-    local(coordinate) { return projectLocal(coordinate, this.province.center) },
+    local(coordinate) { return projectLocal(coordinate, this.country.center) },
     screen(point) { return toScreen(point, this.view) },
     resetView() {
       if (!this.homeView) return
@@ -218,10 +254,10 @@ Component({
     },
     changeZoom(factor, anchor = { x: this.width / 2, y: this.height / 2 }) {
       if (!this.homeView) return
-      const minScale = this.provinceView.scale
+      const minScale = this.countryView.scale
       const scale = Math.min(this.homeView.scale * 14, Math.max(minScale, this.view.scale * factor))
       if (scale === this.view.scale) return
-      this.view = scale === minScale ? { ...this.provinceView } : zoomAt(this.view, anchor, scale)
+      this.view = scale === minScale ? { ...this.countryView } : zoomAt(this.view, anchor, scale)
       this.redraw()
     },
     wheelZoom(event) {
@@ -279,47 +315,134 @@ Component({
       for (let x = 14; x < width; x += 22) {
         for (let y = 14; y < height; y += 22) ctx.fillRect(x, y, 1, 1)
       }
-      this.drawProvince()
+      this.drawCountry()
       const markers = this.markers()
       if (this.properties.route) drawRoute(ctx, markers)
       markers.forEach(marker => drawMarker(ctx, marker))
       this.labels = this.moved ? [] : layoutLabels(ctx, markers, width, height)
       this.labels.forEach(label => drawLabel(ctx, label))
     },
-    drawProvince() {
+    detailedCity(city) {
+      const raw = getCity(city.id)
+      if (!raw.boundaries.length) return null
+      if (!this.detailCache.has(city.id)) {
+        if (this.detailCache.size >= 48) this.detailCache.delete(this.detailCache.keys().next().value)
+        this.detailCache.set(city.id, projectCityDetails(raw, this.country.center))
+      }
+      return this.detailCache.get(city.id)
+    },
+    syncLoadStatus() {
+      const missingBase = !getCountryBase()
+      const missingCity = !getCity(this.properties.cityId).boundaries.length
+      let loadError = ''
+      if (missingBase && this.baseLoadFailed) loadError = '全国地图加载失败，点击重试'
+      else if (missingCity && this.failedCities.has(this.properties.cityId)) loadError = '详细边界加载失败，点击重试'
+      this.setData({ loading: !loadError && (missingBase || missingCity), loadError })
+    },
+    requestCountry() {
+      if (getCountryBase() || this.loadingCountry || this.baseLoadFailed) return
+      this.loadingCountry = true
+      ensureCountryBase().then(() => {
+        if (this.disposed) return
+        this.loadingCountry = false
+        const view = this.view
+        this.updateCity()
+        this.view = view
+        this.redraw()
+        if (this.properties.showPreview) this.capturePreview()
+      }).catch(() => {
+        if (this.disposed) return
+        this.loadingCountry = false
+        this.baseLoadFailed = true
+        this.syncLoadStatus()
+      })
+    },
+    requestDetails(city) {
+      if (getCity(city.id).boundaries.length || this.pendingCities.has(city.id) || this.failedCities.has(city.id)) return
+      this.pendingCities.add(city.id)
+      ensureCityDetails(city.id).then(() => {
+        if (this.disposed) return
+        this.pendingCities.delete(city.id)
+        this.syncLoadStatus()
+        this.redraw()
+        if (this.properties.showPreview) this.capturePreview()
+      }).catch(() => {
+        if (this.disposed) return
+        this.pendingCities.delete(city.id)
+        this.failedCities.add(city.id)
+        this.syncLoadStatus()
+      })
+    },
+    retryDetails() {
+      this.failedCities.clear()
+      this.baseLoadFailed = false
+      this.syncLoadStatus()
+      this.requestCountry()
+      this.requestDetails(this.selectedCity)
+      this.redraw()
+    },
+    drawPolygons(polygons, viewport) {
+      const ctx = this.context
+      for (const polygon of polygons) {
+        if (!intersects(polygon.bounds, viewport)) continue
+        ctx.beginPath()
+        for (const ring of polygon.rings) trace(ctx, ring, true)
+        ctx.fill()
+        ctx.stroke()
+      }
+    },
+    drawCountry() {
       const { context: ctx, width, height, view } = this
       const { x, y, scale } = view
       const viewport = {
         left: (-x - 1) / scale, top: (-y - 1) / scale,
         right: (width - x + 1) / scale, bottom: (height - y + 1) / scale
       }
-      const overview = scale < this.provinceView.scale * 2
+      const overview = scale < this.countryView.scale * 2.5
       const labels = []
       ctx.save()
       ctx.translate(x, y)
       ctx.scale(scale, scale)
       ctx.strokeStyle = overview ? '#b6b6b6' : '#9a9a9a'
       ctx.lineWidth = (overview ? 0.75 : 1) / scale
-      this.province.cities.forEach((city, cityIndex) => {
-        if (!intersects(city.bounds, viewport)) return
-        if (overview) labels.push(city)
-        city.districts.forEach((district, districtIndex) => {
-          ctx.fillStyle = districtFills[(overview ? cityIndex : districtIndex) % districtFills.length]
-          for (const polygon of district.polygons) {
-            if (!intersects(polygon.bounds, viewport)) continue
-            ctx.beginPath()
-            for (const ring of polygon.rings) trace(ctx, ring, true)
-            ctx.fill()
-            ctx.stroke()
-          }
-          if (!overview) labels.push(district)
+      if (overview) {
+        this.country.provinces.forEach((province, index) => {
+          ctx.fillStyle = districtFills[index % districtFills.length]
+          this.drawPolygons(province.polygons, viewport)
+          labels.push(province)
         })
-      })
+        for (const polygon of this.country.borders) {
+          ctx.beginPath()
+          for (const ring of polygon.rings) trace(ctx, ring, true)
+          ctx.stroke()
+        }
+      } else {
+        this.country.cities.forEach((city, cityIndex) => {
+          if (!intersects(city.bounds, viewport)) return
+          const size = Math.max(city.bounds.right - city.bounds.left, city.bounds.bottom - city.bounds.top) * scale
+          if (size >= 120 || city.id === this.properties.cityId) this.requestDetails(city)
+          const details = size >= 120 ? this.detailedCity(city) : null
+          if (details) {
+            details.districts.forEach((district, index) => {
+              ctx.fillStyle = districtFills[index % districtFills.length]
+              this.drawPolygons(district.polygons, viewport)
+              labels.push(district)
+            })
+          } else {
+            ctx.fillStyle = districtFills[cityIndex % districtFills.length]
+            this.drawPolygons(city.polygons, viewport)
+            if (size >= 35) labels.push(city)
+          }
+        })
+      }
+      const selected = this.detailedCity(this.selectedCity)
+      const selectedSize = Math.max(this.selectedCity.bounds.right - this.selectedCity.bounds.left,
+        this.selectedCity.bounds.bottom - this.selectedCity.bounds.top) * scale
+      const outline = !overview && selectedSize >= 120 && selected ? selected.outline : this.selectedCity.outline
       ctx.strokeStyle = '#1c1c1e'
-      ctx.lineWidth = 2.5 / scale
       ctx.lineJoin = 'round'
       ctx.beginPath()
-      for (const ring of this.selectedCity.outline) trace(ctx, ring, true)
+      for (const ring of outline) trace(ctx, ring, true)
       ctx.stroke()
       ctx.restore()
 
@@ -327,9 +450,15 @@ Component({
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.font = overview ? '11px sans-serif' : '12px sans-serif'
+      const occupied = []
       for (const { name, label } of labels) {
         const point = this.screen(label)
-        if (point.x < 0 || point.x > width || point.y < 0 || point.y > height) continue
+        const halfWidth = ctx.measureText(name).width / 2
+        const box = { left: point.x - halfWidth - 3, right: point.x + halfWidth + 3,
+          top: point.y - 9, bottom: point.y + 9 }
+        if (box.left < 0 || box.right > width || box.top < 0 || box.bottom > height ||
+            occupied.some(other => intersects(box, other))) continue
+        occupied.push(box)
         ctx.fillText(name, point.x, point.y)
       }
     },

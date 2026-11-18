@@ -1,19 +1,13 @@
-const boundaries = require('./maoming/boundaries.js')
-const points = require('./maoming/points.js')
-const guangdong = require('./guangdong/index.js')
-const outlines = require('./guangdong/outlines.js')
+const catalogue = require('./national/catalogue.js')
+const points = require('./national/points.js')
 
-const maoming = {
-  id: '440900',
-  provinceName: '广东',
-  cityName: '茂名',
-  dataFolder: 'maoming',
-  coordSystem: 'GCJ-02',
-  center: [111.0046, 22.028],
-  bounds: [110.325821, 21.37103, 111.683363, 22.704334],
-  outline: outlines['440900'],
-  boundaries,
-  points
-}
+const cities = Object.fromEntries(catalogue.cities.map(city => [city.id, {
+  ...city, points: points[city.id], boundaries: [], outline: null
+}]))
 
-module.exports = { ...guangdong, [maoming.id]: maoming }
+Object.assign(cities['440900'], {
+  boundaries: require('./cities/440000/440900/boundaries.js'),
+  outline: require('./cities/440000/440900/outline.js')
+})
+
+module.exports = cities

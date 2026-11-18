@@ -4,4 +4,6 @@
     bindtouchend="touchEnd" bindtouchcancel="touchCancel"></canvas>
   <image wx:if="{{showPreview && previewPath}}" class="map-preview" src="{{previewPath}}" mode="scaleToFill" />
   <view wx:if="{{error}}" class="map-error">{{error}}。可从点位列表浏览。</view>
+  <view wx:elif="{{loadError}}" class="map-status" catchtap="retryDetails">{{loadError}}</view>
+  <view wx:elif="{{loading}}" class="map-status">地图加载中</view>
 </view>

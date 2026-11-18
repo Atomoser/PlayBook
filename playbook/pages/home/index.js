@@ -17,6 +17,7 @@ Page({
   data: {
     statusBarHeight: 0, navigationHeight: 44, menuInset: 0,
     cityId: defaultCityId, cityName: '茂名', provinceName: '广东', openCities,
+    mapCityQuery: '', mapCityMatches: openCities,
     activeTab: 'eat', mapPoints: [], mapRoute: null, route: null, routes: [], routeError: '',
     sheet: '', sheetTitle: '', keepMapVisible: false, detail: null, selectedKey: '', stopNumber: 0,
     routeDraft: null, routeChoices: [],
@@ -79,8 +80,13 @@ Page({
   },
   noop() {},
   tapMapCity() {
-    if (this.data.openCities.length > 1) this.showSheet('cities')
+    if (this.data.openCities.length > 1) this.showSheet('cities', { mapCityQuery: '', mapCityMatches: openCities })
     else this.resetMapView()
+  },
+  searchMapCities(event) {
+    const query = event.detail.value.trim()
+    this.setData({ mapCityQuery: event.detail.value, mapCityMatches: openCities.filter(city =>
+      (city.provinceName + city.fullName).includes(query)) })
   },
   changeMapCity(event) {
     const cityId = event.currentTarget.dataset.id

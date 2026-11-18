@@ -1,6 +1,10 @@
 # PlayBook
 
-原生微信小程序。广东 21 个地级市显示在同一张离线地图上，可跨市拖动，缩小可查看全省。左上角选择城市可将地图视野移到该市，默认居中茂名。茂名保留现有吃玩点位，其他城市暂未添加点位。旅行路线按城市分开保存在本机。
+原生微信小程序。同一张全国地图支持拖动和缩放，按视野显示省、市、县三级边界。左上角可搜索省份或城市，选中后定位并以普通线宽高亮该城市的外边界。默认居中茂名，现有 7 个吃玩点位在茂名，其余城市的点位文件为空。旅行路线按城市分开保存在本机。
+
+当前 DataV 数据包含 34 个省级轮廓、333 个大陆地级行政区和 2844 个大陆县级行政区，另有 26 个港澳分区。台湾目前只有省级轮廓，数据源缺少其下级边界。统计对应这次打包的数据版本，覆盖记录见 `playbook/data/national/coverage.js`。
+
+主包提供首页、城市目录、点位和茂名首屏地图。全国概览位于公共分包 `map-packages/base_0/`，详细边界位于 34 个地区分包中，共 35 个分包。启动后异步加载全国概览，首次浏览相应地区时由微信下载详细地图分包，后续可复用微信缓存。加载失败可以点击地图上的提示重试。绘图、点位筛选和路线保存均在前端完成。
 
 ## 在微信开发者工具中打开
 
@@ -18,10 +22,10 @@ node tools/add-point.js --from feedback.json
 node tools/validate-data.js
 ```
 
-导入后用开发者工具预览点位，再随新版发布。当前支持写入广东 21 市地图，县级市反馈按目录里的所属地级市导入。茂名点位在 `playbook/data/maoming/points.js`，其余广东城市在 `playbook/data/guangdong/<城市编码>/points.js`。尚未开放地图的城市可以先保留相应反馈文件。
+导入后用开发者工具预览点位，再随新版发布。所有城市的点位统一放在 `playbook/data/cities/<省级编码>/<城市编码>/points.js`。例如广东茂名为 `cities/440000/440900/points.js`，广东广州为 `cities/440000/440100/points.js`，北京为 `cities/110000/110000/points.js`。每个文件使用同一个数组保存「吃／玩」，通过 `category` 区分。县级市反馈按目录里的所属地图导入，正式地图编号与对应的名称见 `playbook/data/national/catalogue.js`。
 
 ## 数据来源
 
-- 广东区划来自阿里云 DataV。东莞和中山使用省级数据中的市域轮廓，其余城市显示各自的区县边界。运行 `node tools/prepare-geodata.js --guangdong` 可重新生成新加入的 20 市地图，已有点位文件会保留。[广东区划](https://geo.datav.aliyun.com/areas_v3/bound/440000_full.json)
+- 全国区划来自阿里云 DataV。选中城市的外边界从底图区县合并生成，并引用同一批顶点。重新生成前执行 `npm --prefix tools ci`，再运行 `node tools/prepare-national.js` 和 `node tools/validate-data.js`。工具缓存原始 GeoJSON，保留已有点位文件和茂名数据。边界以整数增量压缩后分包，运行时解码，生成的分包配置会写入 `playbook/app.json`。[全国区划](https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json)
 - 全国反馈目录来自民政部国家地名信息库，分为直辖市、地级行政区、县级市及独立地区条目。资料源中的台湾只有地区级条目。运行 `node tools/prepare-geodata.js` 可重新获取茂名区划及全国反馈目录。[茂名区划](https://geo.datav.aliyun.com/areas_v3/bound/440900_full.json) · [国家地名信息库](https://dmfw.mca.gov.cn/)
 - 首发美食标记是城区探店范围。中国第一滩使用设计文档中的景区参考点，露天矿生态公园坐标使用高德地名资料。[美食介绍](https://static.nfnews.com/content/202603/21/c12264482.html) · [露天矿生态公园](https://www.amap.com/place/B0FFHON6G1)

@@ -2,3 +2,4 @@ project.private.config.json
 feedback.json
 *.lock
 *.tmp
+/tools/node_modules/

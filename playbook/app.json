@@ -1,5 +1,7 @@
 {
-  "pages": ["pages/home/index"],
+  "pages": [
+    "pages/home/index"
+  ],
   "window": {
     "navigationBarTitleText": "PlayBook",
     "navigationBarBackgroundColor": "#f1f1f5",
@@ -8,5 +10,252 @@
   },
   "lazyCodeLoading": "requiredComponents",
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "subPackages": [
+    {
+      "name": "base_0",
+      "root": "map-packages/base_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p11_0",
+      "root": "map-packages/p11_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p12_0",
+      "root": "map-packages/p12_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p13_0",
+      "root": "map-packages/p13_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p14_0",
+      "root": "map-packages/p14_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p15_0",
+      "root": "map-packages/p15_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p21_0",
+      "root": "map-packages/p21_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p22_0",
+      "root": "map-packages/p22_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p23_0",
+      "root": "map-packages/p23_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p31_0",
+      "root": "map-packages/p31_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p32_0",
+      "root": "map-packages/p32_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p33_0",
+      "root": "map-packages/p33_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p34_0",
+      "root": "map-packages/p34_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p35_0",
+      "root": "map-packages/p35_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p36_0",
+      "root": "map-packages/p36_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p37_0",
+      "root": "map-packages/p37_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p41_0",
+      "root": "map-packages/p41_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p42_0",
+      "root": "map-packages/p42_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p43_0",
+      "root": "map-packages/p43_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p44_0",
+      "root": "map-packages/p44_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p45_0",
+      "root": "map-packages/p45_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p46_0",
+      "root": "map-packages/p46_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p50_0",
+      "root": "map-packages/p50_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p51_0",
+      "root": "map-packages/p51_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p52_0",
+      "root": "map-packages/p52_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p53_0",
+      "root": "map-packages/p53_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p54_0",
+      "root": "map-packages/p54_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p61_0",
+      "root": "map-packages/p61_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p62_0",
+      "root": "map-packages/p62_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p63_0",
+      "root": "map-packages/p63_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p64_0",
+      "root": "map-packages/p64_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p65_0",
+      "root": "map-packages/p65_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p71_0",
+      "root": "map-packages/p71_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p81_0",
+      "root": "map-packages/p81_0",
+      "pages": [
+        "entry"
+      ]
+    },
+    {
+      "name": "p82_0",
+      "root": "map-packages/p82_0",
+      "pages": [
+        "entry"
+      ]
+    }
+  ]
 }

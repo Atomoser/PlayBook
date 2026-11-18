@@ -10,7 +10,10 @@ const fold = value => value.normalize('NFKC').trim().toLowerCase()
 
 function addPoint(input) {
   const feedback = JSON.parse(readFileSync(input, 'utf8').replace(/^\uFEFF/, ''))
-  const selected = feedbackCities.find(city => city.cityId === feedback?.cityId)
+  const mapped = cities[feedback?.cityId]
+  const selected = feedbackCities.find(city => city.cityId === feedback?.cityId) || (mapped && {
+    cityId: mapped.id, mapCityId: mapped.id, cityName: mapped.cityName, provinceName: mapped.provinceName
+  })
   if (!selected || feedback.cityName !== selected.cityName || feedback.provinceName !== selected.provinceName) {
     throw new Error('城市编号、省份名称和城市名称须与反馈目录一致')
   }
