@@ -25,6 +25,9 @@
     </view>
 
     <view class="map-bottom">
+      <button class="feedback-fab feedback-point-fab" size="mini" catchtap="openFeedback" aria-label="反馈点位">
+        <image class="feedback-icon" src="/assets/icons/chat-dots-light.png" mode="aspectFit" />
+      </button>
       <view class="map-actions">
         <button wx:if="{{activeTab !== 'book'}}" class="map-action" size="mini" bindtap="openPoints"><image class="action-icon" src="/assets/icons/list-bullets-light.png" mode="aspectFit" /><text>点位列表</text></button>
         <button wx:elif="{{route || routeDraft}}" class="map-action" size="mini" bindtap="openRoutes"><image class="action-icon" src="/assets/icons/list-bullets-light.png" mode="aspectFit" /><text>路线列表</text></button>
@@ -32,13 +35,13 @@
         <button wx:else class="map-action" size="mini" bindtap="newRoute"><image class="action-icon" src="/assets/icons/plus-circle-light.png" mode="aspectFit" /><text>新建路线</text></button>
         <button wx:if="{{routeDraft}}" class="map-action draft-action" size="mini" bindtap="resumeEditor">继续编辑 · {{routeDraft.stops.length}} 站</button>
       </view>
-      <button class="feedback-fab" size="mini" catchtap="openFeedback" aria-label="用户反馈">
-        <image class="feedback-icon" src="/assets/icons/chat-dots-light.png" mode="aspectFit" />
+      <button class="feedback-fab feedback-routebook-fab" size="mini" catchtap="openRoutebookFeedback" aria-label="反馈路书">
+        <image class="feedback-icon" src="/assets/icons/book-open-text-light.png" mode="aspectFit" />
       </button>
     </view>
 
     <view wx:if="{{sheet}}" class="scrim {{keepMapVisible ? 'clear' : ''}}" catchtap="closeSheet" catchtouchmove="noop"></view>
-    <view wx:if="{{sheet}}" class="sheet {{sheet === 'detail' || sheet === 'stop' || sheet === 'cities' || (sheet === 'feedback' && feedbackCopied) ? 'compact' : ''}}" catchtap="noop">
+    <view wx:if="{{sheet}}" class="sheet {{sheet === 'detail' || sheet === 'stop' || sheet === 'cities' || (sheet === 'feedback' && feedbackCopied) || (sheet === 'routebook-feedback' && routebookFeedbackCopied) ? 'compact' : ''}}" catchtap="noop">
       <view class="sheet-grip"></view>
       <view class="sheet-header">
         <text class="sheet-title">{{sheetTitle}}</text>
@@ -139,6 +142,41 @@
           <button wx:if="{{!feedbackCopied}}" class="primary-btn" bindtap="copyFeedback">复制反馈</button>
           <block wx:else>
             <button class="secondary-btn" bindtap="editFeedback">返回修改</button>
+            <button class="primary-btn" open-type="contact">打开客服</button>
+          </block>
+        </view>
+      </block>
+
+      <block wx:elif="{{sheet === 'routebook-feedback'}}">
+        <scroll-view class="sheet-scroll" scroll-y scroll-with-animation scroll-into-view="{{routebookFeedbackScrollTarget}}">
+          <view wx:if="{{!routebookFeedbackCopied}}" class="sheet-content feedback-form">
+            <text class="field-label">路书名称</text>
+            <input class="form-input" value="{{routebookFeedbackDraft.name}}" maxlength="{{routebookFeedbackNameLimit}}" placeholder="例如：海南环岛吃玩路书" bindinput="changeRoutebookFeedbackName" />
+            <view class="routebook-places-heading">
+              <text class="field-label">路书地点</text>
+              <text class="row-note">{{routebookFeedbackDraft.places.length}} / {{routebookFeedbackMaxPlaces}}</text>
+            </view>
+            <text class="form-hint">按行程顺序添加地点，跨城地点请注明城市或详细地址。</text>
+            <view wx:for="{{routebookFeedbackDraft.places}}" wx:key="id" id="{{item.id}}" class="routebook-place-row">
+              <text class="routebook-place-number">{{index + 1}}</text>
+              <input class="form-input routebook-place-input" value="{{item.name}}" maxlength="{{routebookFeedbackPlaceNameLimit}}" placeholder="地点名称，可附城市或地址" data-id="{{item.id}}" bindinput="changeRoutebookFeedbackPlace" />
+              <button class="routebook-place-remove" data-id="{{item.id}}" bindtap="removeRoutebookFeedbackPlace" aria-label="删除第{{index + 1}}个地点">
+                <image class="tool-icon" src="/assets/icons/x.png" mode="aspectFit" />
+              </button>
+            </view>
+            <button class="routebook-add-place" bindtap="addRoutebookFeedbackPlace" disabled="{{routebookFeedbackDraft.places.length >= routebookFeedbackMaxPlaces}}">
+              {{routebookFeedbackDraft.places.length >= routebookFeedbackMaxPlaces ? '已达50个地点' : '＋ 添加地点'}}
+            </button>
+          </view>
+          <view wx:else class="sheet-content location-detail">
+            <text class="detail-name">路书反馈已复制</text>
+            <text class="detail-description">已复制路书名称和按顺序填写的 {{routebookFeedbackDraft.places.length}} 个地点。打开微信客服，在对话中粘贴并发送给作者。</text>
+          </view>
+        </scroll-view>
+        <view class="sheet-actions">
+          <button wx:if="{{!routebookFeedbackCopied}}" class="primary-btn" bindtap="copyRoutebookFeedback" disabled="{{routebookFeedbackCopying}}">{{routebookFeedbackCopying ? '复制中…' : '复制反馈'}}</button>
+          <block wx:else>
+            <button class="secondary-btn" bindtap="editRoutebookFeedback">返回修改</button>
             <button class="primary-btn" open-type="contact">打开客服</button>
           </block>
         </view>

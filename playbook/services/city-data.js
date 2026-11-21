@@ -6,6 +6,7 @@ const { decodeCity } = require('./map-geometry.js')
 const pendingPackages = new Map()
 let countryBase = null
 let pendingCountry = null
+const routebookFeedbackLimits = Object.freeze({ maxPlaces: 50, nameLimit: 40, placeNameLimit: 120 })
 
 function getCountryBase() { return countryBase }
 
@@ -87,6 +88,23 @@ function createFeedback(draft) {
   }
 }
 
+function createRoutebookFeedback(draft) {
+  const { maxPlaces, nameLimit, placeNameLimit } = routebookFeedbackLimits
+  const name = typeof draft?.name === 'string' ? draft.name.trim() : ''
+  if (!name) throw new Error('请填写路书名称')
+  if (name.length > nameLimit) throw new Error(`路书名称最多${nameLimit}个字`)
+  if (!Array.isArray(draft.places) || !draft.places.length) throw new Error('请填写至少1个地点')
+  if (draft.places.length > maxPlaces) throw new Error(`最多反馈${maxPlaces}个地点`)
+
+  const places = draft.places.map((place, index) => {
+    const placeName = typeof place?.name === 'string' ? place.name.trim() : ''
+    if (!placeName) throw new Error(`请填写第${index + 1}个地点`)
+    if (placeName.length > placeNameLimit) throw new Error(`第${index + 1}个地点最多${placeNameLimit}个字`)
+    return { order: index + 1, name: placeName }
+  })
+  return { type: 'routebook', name, places }
+}
+
 module.exports = {
   getCity,
   getCountryBase,
@@ -97,6 +115,8 @@ module.exports = {
   getFeedbackCity,
   searchFeedbackCities,
   createFeedback,
+  createRoutebookFeedback,
+  routebookFeedbackLimits,
   openCities: Object.values(cities).map(city => ({
     id: city.id, name: city.cityName, fullName: city.fullName, provinceName: city.provinceName
   }))

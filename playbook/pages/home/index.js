@@ -1,15 +1,18 @@
 const {
-  getCity, getPoints, getFeedbackCity, searchFeedbackCities, createFeedback, openCities
+  getCity, getPoints, getFeedbackCity, searchFeedbackCities, createFeedback,
+  createRoutebookFeedback, routebookFeedbackLimits, openCities
 } = require('../../services/city-data.js')
 const { readCityState, saveRoute, selectRoute, removeRoute } = require('../../services/city-storage.js')
+const { maxPlaces, nameLimit, placeNameLimit } = routebookFeedbackLimits
 
 const defaultCityId = '440900'
 const feedbackBatchSize = 70
 const sheetTitles = {
   cities: '选择城市', points: '点位列表', detail: '地点详情', routes: '我的路线',
-  stop: '路线站点', editor: '编辑路线', feedback: '反馈点位', 'feedback-cities': '选择城市'
+  stop: '路线站点', editor: '编辑路线', feedback: '反馈点位', 'feedback-cities': '选择城市',
+  'routebook-feedback': '反馈路书'
 }
-const mapPreviewSheets = ['cities', 'points', 'detail', 'stop', 'routes', 'editor', 'feedback', 'feedback-cities']
+const mapPreviewSheets = ['cities', 'points', 'detail', 'stop', 'routes', 'editor', 'feedback', 'feedback-cities', 'routebook-feedback']
 
 function toast(title) { wx.showToast({ title, icon: 'none' }) }
 
@@ -22,7 +25,10 @@ Page({
     sheet: '', sheetTitle: '', keepMapVisible: false, detail: null, selectedKey: '', stopNumber: 0,
     routeDraft: null, routeChoices: [],
     feedbackDraft: null, feedbackCityName: '', feedbackCopied: false,
-    feedbackQuery: '', feedbackMatches: [], feedbackHasMore: false
+    feedbackQuery: '', feedbackMatches: [], feedbackHasMore: false,
+    routebookFeedbackDraft: null, routebookFeedbackCopied: false, routebookFeedbackCopying: false,
+    routebookFeedbackScrollTarget: '', routebookFeedbackMaxPlaces: maxPlaces,
+    routebookFeedbackNameLimit: nameLimit, routebookFeedbackPlaceNameLimit: placeNameLimit
   },
 
   onLoad() {
@@ -289,5 +295,68 @@ Page({
     wx.setClipboardData({ data: JSON.stringify(feedback, null, 2),
       success: () => this.setData({ feedbackCopied: true }), fail: () => toast('复制失败，请重试') })
   },
-  editFeedback() { this.setData({ feedbackCopied: false }) }
+  editFeedback() { this.setData({ feedbackCopied: false }) },
+
+  newRoutebookFeedbackPlace() {
+    this.routebookFeedbackPlaceSequence = (this.routebookFeedbackPlaceSequence || 0) + 1
+    return { id: `routebook-place-${this.routebookFeedbackPlaceSequence}`, name: '' }
+  },
+  changeRoutebookFeedback(extra) {
+    this.routebookFeedbackRevision = (this.routebookFeedbackRevision || 0) + 1
+    this.setData({ routebookFeedbackCopied: false, routebookFeedbackCopying: false, ...extra })
+  },
+  openRoutebookFeedback() {
+    const draft = this.data.routebookFeedbackDraft || { name: '', places: [this.newRoutebookFeedbackPlace()] }
+    this.routebookFeedbackRevision = (this.routebookFeedbackRevision || 0) + 1
+    this.showSheet('routebook-feedback', {
+      routebookFeedbackDraft: draft, routebookFeedbackCopied: false,
+      routebookFeedbackCopying: false, routebookFeedbackScrollTarget: ''
+    })
+  },
+  changeRoutebookFeedbackName(event) {
+    this.changeRoutebookFeedback({ 'routebookFeedbackDraft.name': event.detail.value })
+  },
+  changeRoutebookFeedbackPlace(event) {
+    const index = this.data.routebookFeedbackDraft?.places.findIndex(place => place.id === event.currentTarget.dataset.id)
+    if (index == null || index < 0) return
+    this.changeRoutebookFeedback({ [`routebookFeedbackDraft.places[${index}].name`]: event.detail.value })
+  },
+  addRoutebookFeedbackPlace() {
+    const draft = this.data.routebookFeedbackDraft
+    if (!draft) return
+    if (draft.places.length >= maxPlaces) return toast(`最多反馈${maxPlaces}个地点`)
+    const place = this.newRoutebookFeedbackPlace()
+    this.changeRoutebookFeedback({
+      'routebookFeedbackDraft.places': [...draft.places, place], routebookFeedbackScrollTarget: place.id
+    })
+  },
+  removeRoutebookFeedbackPlace(event) {
+    const draft = this.data.routebookFeedbackDraft
+    if (!draft || !draft.places.some(place => place.id === event.currentTarget.dataset.id)) return
+    const places = draft.places.filter(place => place.id !== event.currentTarget.dataset.id)
+    this.changeRoutebookFeedback({
+      'routebookFeedbackDraft.places': places.length ? places : [this.newRoutebookFeedbackPlace()],
+      routebookFeedbackScrollTarget: ''
+    })
+  },
+  copyRoutebookFeedback() {
+    if (this.data.routebookFeedbackCopying) return
+    let feedback
+    try { feedback = createRoutebookFeedback(this.data.routebookFeedbackDraft) }
+    catch (error) { return toast(error.message) }
+    const revision = this.routebookFeedbackRevision
+    this.setData({ routebookFeedbackCopying: true })
+    wx.setClipboardData({ data: JSON.stringify(feedback, null, 2),
+      success: () => {
+        if (revision !== this.routebookFeedbackRevision) return
+        this.setData({ routebookFeedbackCopied: true, routebookFeedbackCopying: false })
+      },
+      fail: () => {
+        if (revision !== this.routebookFeedbackRevision) return
+        this.setData({ routebookFeedbackCopying: false })
+        toast('复制失败，请重试')
+      }
+    })
+  },
+  editRoutebookFeedback() { this.changeRoutebookFeedback({}) }
 })

@@ -51,7 +51,7 @@
 .tool-icon { flex: none; width: 26rpx; height: 26rpx; }
 
 .map-bottom { position: relative; flex: none; height: 112rpx; margin: 0 26rpx; }
-.map-actions { position: absolute; top: 17rpx; right: 106rpx; left: 0; display: flex; gap: 9rpx; }
+.map-actions { position: absolute; top: 17rpx; right: 106rpx; left: 106rpx; display: flex; gap: 9rpx; }
 .map-actions .map-action {
   display: flex;
   flex: 1;
@@ -75,7 +75,6 @@
 .map-bottom .feedback-fab {
   position: absolute;
   top: 10rpx;
-  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,6 +87,8 @@
   background: #1c1c1e;
   box-shadow: 0 9rpx 20rpx #1c1c1e2e;
 }
+.map-bottom .feedback-point-fab { left: 0; }
+.map-bottom .feedback-routebook-fab { right: 0; }
 .feedback-icon { flex: none; width: 36rpx; height: 36rpx; }
 
 .tabbar {
@@ -167,3 +168,11 @@
 .form-textarea { height: 146rpx; padding-top: 13rpx; line-height: 1.45; }
 .city-search { padding: 0 28rpx 10rpx; }
 .load-more { width: 100%; color: #434343; font-size: 25rpx; line-height: 74rpx; }
+.routebook-places-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 8rpx; }
+.form-hint { display: block; margin-bottom: 16rpx; color: #646464; font-size: 23rpx; line-height: 1.5; }
+.routebook-place-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 14rpx; scroll-margin-top: 12rpx; }
+.routebook-place-number { flex: none; width: 34rpx; color: #555; font-size: 24rpx; text-align: center; }
+.routebook-place-input { flex: 1; min-width: 0; width: 0; padding: 0 16rpx; }
+.sheet .routebook-place-remove { display: flex; flex: none; align-items: center; justify-content: center; width: 54rpx; height: 64rpx; border-radius: 50%; background: #f1f1f5; }
+.sheet .routebook-add-place { width: 100%; min-height: 72rpx; margin-top: 6rpx; border-radius: 999rpx; background: #1c1c1e; color: #fff; font-size: 26rpx; font-weight: 650; line-height: 72rpx; }
+.sheet .routebook-add-place[disabled] { background: #ededf1; color: #777; }
